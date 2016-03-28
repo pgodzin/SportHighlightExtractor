@@ -4,9 +4,7 @@ import org.opencv.core.Core;
 import org.opencv.core.Mat;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
-import org.opencv.video.Video;
 import org.opencv.videoio.VideoCapture;
-import org.opencv.videoio.VideoWriter;
 import org.opencv.videoio.Videoio;
 
 import javax.swing.*;
@@ -25,7 +23,7 @@ public class Extractor {
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
     }
 
-    static String filename = "hockey1.mp4";
+    static String filename = "hockey_full_test.mp4";
     static VideoCapture video = new VideoCapture(filename);
     static Tesseract ocr = new Tesseract();
     static HashSet<String> abbreviationSet;
@@ -33,70 +31,82 @@ public class Extractor {
     static String team2Name = "";
     static int team1Score = 0;
     static int team2Score = 0;
+    static int framesToSkip = 20000;
 
     public static void main(String[] args) {
 
-        Mat frame = new Mat();
         initTeamAbbreviationSet();
 
         ArrayList<Integer> scoreChangeFrames = new ArrayList<Integer>();
-
-        while (video.isOpened()) {
+        Mat frame = new Mat();
+        /*while (video.isOpened()) {
             if (video.read(frame)) {
                 double frameCount = video.get(Videoio.CAP_PROP_FRAME_COUNT);
                 double posFrames = video.get(Videoio.CAP_PROP_POS_FRAMES);
 
                 int frameNum = extractHockeyScores(frame);
-                if(frameNum > 0) scoreChangeFrames.add(frameNum);
+                if (frameNum > 0) scoreChangeFrames.add(frameNum);
 
-                if (frameCount - posFrames < 500) video.release();
-                for (int i = 0; i < 500; i++) video.grab();
+                if (frameCount - posFrames < framesToSkip) break;
+                video.set(Videoio.CAP_PROP_POS_FRAMES, posFrames + framesToSkip);
 
             }
-        }
+        }*/
 
-/*
-        int[] s =  {2556, 8518, 9520, 17536};
-        for (Integer frameNum : s){
+        int[] s = {18377, 153259, 167710};
+        //int[] s = {18377};
+        //int[] s = {18492, 18875, 153393, 154866, 167829, 168401};
+        Mat prev = new Mat();
+        for (Integer frameNum : s) {
             video = new VideoCapture(filename);
-            for (int i = 0; i < frameNum; i++) video.grab();
+            video.set(Videoio.CAP_PROP_POS_FRAMES, frameNum);
 
-            Mat prev = new Mat();
             video.read(prev);
+            prev = prev.submat(200, prev.rows() - 200, 400, prev.cols() - 400);
             //prev = prev.submat(0, prev.rows(), 0, prev.cols());
             Imgproc.cvtColor(prev, prev, Imgproc.COLOR_BGR2GRAY);
-            System.out.println(video.get(Videoio.CAP_PROP_POS_FRAMES));
+            int frameDuration = 1800; // Check the 1 mins following a score for a replay
+            double[] diffArray = new double[frameDuration];
             while (video.isOpened()) {
-                if (video.read(frame)) {
-                    Imgproc.cvtColor(frame, frame, Imgproc.COLOR_BGR2GRAY);
-                    // Mat flow = prev.clone();
+                if (video.read(frame) && (int) video.get(Videoio.CAP_PROP_POS_FRAMES) - frameNum < frameDuration) {
+                    frame = frame.submat(200, frame.rows() - 200, 400, frame.cols() - 400);
                     //frame = frame.submat(0, frame.rows(), 0, frame.cols());
-                    BufferedImage img = Mat2BufferedImage(frame);
-                    displayImage(img, "frame");
-                    System.out.println(video.get(Videoio.CAP_PROP_POS_FRAMES));
-
-                    */
-/*Video.calcOpticalFlowFarneback(prev.submat(150, 350, 200, 600), frame.submat(150, 350, 200, 600),
-                            flow, .5, 1, 20, 1, 5, 1.1, Video.OPTFLOW_FARNEBACK_GAUSSIAN);
-                    *//*
+                    Imgproc.cvtColor(frame, frame, Imgproc.COLOR_BGR2GRAY);
+                    //BufferedImage img = Mat2BufferedImage(frame);
+                    //displayImage(img, "frame");
 
                     double diff = 0;
-                    for(int r = 0; r < frame.rows(); r++){
-                        for(int c = 0; c < frame.cols(); c++){
+                    for (int r = 0; r < frame.rows(); r++) {
+                        for (int c = 0; c < frame.cols(); c++) {
                             diff += Math.abs(frame.get(r, c)[0] - prev.get(r, c)[0]);
                         }
                     }
-                    System.out.println(diff);
-                    prev = frame;
-                    BufferedImage img1 = Mat2BufferedImage(prev);
-                    displayImage(img1, "prev");
+                    diffArray[(int) video.get(Videoio.CAP_PROP_POS_FRAMES) - frameNum - 2] = diff / (frame.cols() * frame.rows());
+                    //System.out.println(diff / (frame.cols() * frame.rows()));
+                    prev = frame.clone();
 
+                } else break;
+            }
 
+            int firstCutFrame = 0;
+            double maxDiff = Double.MIN_VALUE;
+            for (int i = 0; i < diffArray.length / 5; i++) {
+                if (diffArray[i] > maxDiff) {
+                    maxDiff = diffArray[i];
+                    firstCutFrame = i;
                 }
             }
 
+            int secondCutFrame = firstCutFrame;
+            maxDiff = Double.MIN_VALUE;
+            for (int i = firstCutFrame + 100; i < diffArray.length; i++) {
+                if (diffArray[i] > maxDiff) {
+                    maxDiff = diffArray[i];
+                    secondCutFrame = i;
+                }
+            }
+            System.out.println("Start: " + (frameNum + firstCutFrame) + " End: " + (frameNum + secondCutFrame));
         }
-*/
 
         System.exit(0);
     }
@@ -146,7 +156,8 @@ public class Extractor {
     public static int extractHockeyScores(Mat frame) {
         Mat scores = frame.submat(40, 80, 108, 135);
         scores = adjustScoreMat(scores);
-
+        //BufferedImage img = Mat2BufferedImage(scores);
+        //displayImage(img, "score");
 
         try {
 
@@ -183,15 +194,61 @@ public class Extractor {
                 if (score1.length() == 1 && Character.isDigit(score1.charAt(0)) && Integer.parseInt(score1) - team1Score == 1) {
                     team1Score = Integer.parseInt(score1);
                     System.out.println("Score: " + team1Score + "-" + team2Score);
-                    return (int) video.get(Videoio.CAP_PROP_POS_FRAMES);
+                    int frameNum = (int) video.get(Videoio.CAP_PROP_POS_FRAMES);
+                    int scoreFrameNum = binarySearchForScoreFrame(frameNum - framesToSkip, frameNum, team1Score, 0);
+                    System.out.println(scoreFrameNum);
+                    return scoreFrameNum;
                 } else if (score2.length() == 1 && Character.isDigit(score2.charAt(0)) && Integer.parseInt(score2) - team2Score == 1) {
                     team2Score = Integer.parseInt(score2);
                     System.out.println("Score: " + team1Score + "-" + team2Score);
-                    return (int) video.get(Videoio.CAP_PROP_POS_FRAMES);
+                    int frameNum = (int) video.get(Videoio.CAP_PROP_POS_FRAMES);
+                    int scoreFrameNum = binarySearchForScoreFrame(frameNum - framesToSkip, frameNum, team2Score, 1);
+                    System.out.println(scoreFrameNum);
+                    return scoreFrameNum;
                 }
             }
         } catch (TesseractException e) {
             e.printStackTrace();
+        }
+        return -1;
+    }
+
+    private static int binarySearchForScoreFrame(int frameStart, int frameEnd, int score, int whichTeam) {
+
+        if (Math.abs(frameEnd - frameStart) < 200) return frameEnd;
+        else {
+            int mid = (frameStart + frameEnd) / 2;
+            video = new VideoCapture(filename);
+            if (mid > video.get(Videoio.CAP_PROP_FRAME_COUNT)) System.out.println("UHOH");
+            video.set(Videoio.CAP_PROP_POS_FRAMES, mid);
+            Mat frame = new Mat();
+            video.read(frame);
+            Mat scores = frame.submat(40, 80, 108, 135);
+            scores = adjustScoreMat(scores);
+            //BufferedImage img = Mat2BufferedImage(scores);
+            //displayImage(img, "binary_score");
+            try {
+                String scoresText = ocr.doOCR(Mat2BufferedImage(scores));
+                if (scoresText.split("\\n").length == 2) {
+                    String newScore = scoresText.split("\\n")[whichTeam];
+                    newScore = correctOCR(newScore);
+                    if (newScore.length() == 1 && Character.isDigit(newScore.charAt(0)) && Integer.parseInt(newScore) == score) {
+                        //System.out.println("left");
+                        return binarySearchForScoreFrame(frameStart, mid, score, whichTeam);
+                    } else if (newScore.length() == 1 && Character.isDigit(newScore.charAt(0)) && score - Integer.parseInt(newScore) == 1) {
+                        //System.out.println("right");
+                        return binarySearchForScoreFrame(mid, frameEnd, score, whichTeam);
+                    } else {
+                        //System.out.println("unclear");
+                        return binarySearchForScoreFrame(frameStart + 200, frameEnd, score, whichTeam);
+                    }
+                } else {
+                    //System.out.println("unclear");
+                    return binarySearchForScoreFrame(frameStart + 200, frameEnd, score, whichTeam);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
         return -1;
     }
