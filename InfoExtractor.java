@@ -214,4 +214,19 @@ public class InfoExtractor {
         else if (s.equals("A")) return "4";
         return s;
     }
+
+    public static void extractFootballScore() {
+                        /* Mat board = frame.submat(40, 120, 115, 210); // Whole scoreboard
+                Mat fox = frame.submat(650, 680, 1100, 1170); // Whole scoreboard
+                Mat team1Score = frame.submat(60, 90, 115, 160);  // First score
+                Mat team1Name  = frame.submat(40, 60, 115, 160);  // First team
+                Mat team2Score  = frame.submat(60, 90, 170, 215); // Second score
+                Mat team2Name = frame.submat(40, 60, 170, 215);  // Second team
+
+                Imgproc.cvtColor(board, board, Imgproc.COLOR_BGR2GRAY);
+                Imgproc.cvtColor(team1Score, team1Score, Imgproc.COLOR_BGR2GRAY);
+                Imgproc.cvtColor(team2Score, team2Score, Imgproc.COLOR_BGR2GRAY);
+                Imgproc.cvtColor(team1Name, team1Name, Imgproc.COLOR_BGR2GRAY);
+                Imgproc.cvtColor(team2Name, team2Name, Imgproc.COLOR_BGR2GRAY);*/
+    }
 }

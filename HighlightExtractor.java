@@ -1,5 +1,6 @@
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
+import org.opencv.imgproc.Imgproc;
 import org.opencv.videoio.VideoCapture;
 import org.opencv.videoio.Videoio;
 
@@ -19,47 +20,22 @@ public class HighlightExtractor {
     static int team1Score = 0;
     static int team2Score = 0;
     static int framesToSkip = 20000;
+    static ArrayList<Integer> scoreChangeFrames = new ArrayList<Integer>();
 
     public static void main(String[] args) {
 
-        ArrayList<Integer> scoreChangeFrames = new ArrayList<Integer>();
-        Mat frame = new Mat();
-        while (video.isOpened()) {
-            if (video.read(frame)) {
-                double frameCount = video.get(Videoio.CAP_PROP_FRAME_COUNT);
-                double posFrames = video.get(Videoio.CAP_PROP_POS_FRAMES);
+        getTeamInfoAndScoreChangeFrames();
 
-                if (team1Name.equals("")) {
-                    String[] teamNames = infoExtractor.extractTeamNames("hockey", frame);
-                    if (teamNames[0] != null && teamNames[1] != null) {
-                        team1Name = teamNames[0];
-                        team2Name = teamNames[1];
-                    }
-                }
+        // extractHighlightVideos();
 
-                int frameNum = -1;
-                String[] scores = infoExtractor.extractScore("hockey", frame);
-                if (scores[0] != null && scores[0].length() == 1 && Character.isDigit(scores[0].charAt(0)) && Integer.parseInt(scores[0]) - team1Score == 1) {
-                    team1Score = Integer.parseInt(scores[0]);
-                    System.out.println("Score: " + team1Score + "-" + team2Score);
-                    frameNum = infoExtractor.extractScoreFrame("hockey", (int) video.get(Videoio.CAP_PROP_POS_FRAMES), filename, framesToSkip, team1Score, 0);
-                } else if (scores[1] != null && scores[1].length() == 1 && Character.isDigit(scores[1].charAt(0)) && Integer.parseInt(scores[1]) - team2Score == 1) {
-                    team2Score = Integer.parseInt(scores[1]);
-                    System.out.println("Score: " + team1Score + "-" + team2Score);
-                    frameNum = infoExtractor.extractScoreFrame("hockey", (int) video.get(Videoio.CAP_PROP_POS_FRAMES), filename, framesToSkip, team2Score, 1);
-                }
+        System.exit(0);
+    }
 
-                if (frameNum > 0) scoreChangeFrames.add(frameNum);
-
-                if (frameCount - posFrames < framesToSkip) break;
-                video.set(Videoio.CAP_PROP_POS_FRAMES, posFrames + framesToSkip);
-
-            }
-        }
-
-        /*int[] s = {18370, 153209, 167735};
+    private static void extractHighlightVideos() {
+        int[] s = {18370, 153209, 167735};
         //int[] s = {18377};
         //int[] s = {18492, 18875, 153393, 154866, 167829, 168401};
+        Mat frame = new Mat();
         Mat prev = new Mat();
         for (Integer frameNum : s) {
             video = new VideoCapture(filename);
@@ -109,24 +85,44 @@ public class HighlightExtractor {
                 }
             }
             System.out.println("Start: " + (frameNum + firstCutFrame) + " End: " + (frameNum + secondCutFrame));
-        }*/
+        }
+    }
 
-        System.exit(0);
+    private static void getTeamInfoAndScoreChangeFrames() {
+        Mat frame = new Mat();
+        while (video.isOpened()) {
+            if (video.read(frame)) {
+                double frameCount = video.get(Videoio.CAP_PROP_FRAME_COUNT);
+                double posFrames = video.get(Videoio.CAP_PROP_POS_FRAMES);
+
+                if (team1Name.equals("")) {
+                    String[] teamNames = infoExtractor.extractTeamNames("hockey", frame);
+                    if (teamNames[0] != null && teamNames[1] != null) {
+                        team1Name = teamNames[0];
+                        team2Name = teamNames[1];
+                    }
+                }
+
+                int frameNum = -1;
+                String[] scores = infoExtractor.extractScore("hockey", frame);
+                if (scores[0] != null && scores[0].length() == 1 && Character.isDigit(scores[0].charAt(0)) && Integer.parseInt(scores[0]) - team1Score == 1) {
+                    team1Score = Integer.parseInt(scores[0]);
+                    System.out.println("Score: " + team1Score + "-" + team2Score);
+                    frameNum = infoExtractor.extractScoreFrame("hockey", (int) video.get(Videoio.CAP_PROP_POS_FRAMES), filename, framesToSkip, team1Score, 0);
+                } else if (scores[1] != null && scores[1].length() == 1 && Character.isDigit(scores[1].charAt(0)) && Integer.parseInt(scores[1]) - team2Score == 1) {
+                    team2Score = Integer.parseInt(scores[1]);
+                    System.out.println("Score: " + team1Score + "-" + team2Score);
+                    frameNum = infoExtractor.extractScoreFrame("hockey", (int) video.get(Videoio.CAP_PROP_POS_FRAMES), filename, framesToSkip, team2Score, 1);
+                }
+
+                if (frameNum > 0) scoreChangeFrames.add(frameNum);
+
+                if (frameCount - posFrames < framesToSkip) break;
+                video.set(Videoio.CAP_PROP_POS_FRAMES, posFrames + framesToSkip);
+
+            }
+        }
     }
 
 
-    public static void extractFootballScores() {
-                        /* Mat board = frame.submat(40, 120, 115, 210); // Whole scoreboard
-                Mat fox = frame.submat(650, 680, 1100, 1170); // Whole scoreboard
-                Mat team1Score = frame.submat(60, 90, 115, 160);  // First score
-                Mat team1Name  = frame.submat(40, 60, 115, 160);  // First team
-                Mat team2Score  = frame.submat(60, 90, 170, 215); // Second score
-                Mat team2Name = frame.submat(40, 60, 170, 215);  // Second team
-
-                Imgproc.cvtColor(board, board, Imgproc.COLOR_BGR2GRAY);
-                Imgproc.cvtColor(team1Score, team1Score, Imgproc.COLOR_BGR2GRAY);
-                Imgproc.cvtColor(team2Score, team2Score, Imgproc.COLOR_BGR2GRAY);
-                Imgproc.cvtColor(team1Name, team1Name, Imgproc.COLOR_BGR2GRAY);
-                Imgproc.cvtColor(team2Name, team2Name, Imgproc.COLOR_BGR2GRAY);*/
-    }
 }
