@@ -2,6 +2,7 @@ import org.opencv.core.Core;
 import org.opencv.core.Mat;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.videoio.VideoCapture;
+import org.opencv.videoio.VideoWriter;
 import org.opencv.videoio.Videoio;
 
 import java.util.ArrayList;
@@ -24,17 +25,20 @@ public class HighlightExtractor {
 
     public static void main(String[] args) {
 
-        getTeamInfoAndScoreChangeFrames();
+        //getTeamInfoAndScoreChangeFrames();
 
-        // extractHighlightVideos();
+        extractHighlightVideos();
 
         System.exit(0);
     }
 
     private static void extractHighlightVideos() {
-        int[] s = {18370, 153209, 167735};
-        //int[] s = {18377};
-        //int[] s = {18492, 18875, 153393, 154866, 167829, 168401};
+        int[] s = {17832, 151547, 167260};
+        //int[] s = {18874, 151740, 151973, 167339, 168401};
+
+        //int[] s = {18370, 153209, 167735};
+        //int[] s = {153209};
+        //int[] s = {153393, 154866};
         Mat frame = new Mat();
         Mat prev = new Mat();
         for (Integer frameNum : s) {
@@ -45,7 +49,7 @@ public class HighlightExtractor {
             prev = prev.submat(200, prev.rows() - 200, 400, prev.cols() - 400);
             //prev = prev.submat(0, prev.rows(), 0, prev.cols());
             Imgproc.cvtColor(prev, prev, Imgproc.COLOR_BGR2GRAY);
-            int frameDuration = 1800; // Check the 1 mins following a score for a replay
+            int frameDuration = 3000; // Check the 1 mins following a score for a replay
             double[] diffArray = new double[frameDuration];
             while (video.isOpened()) {
                 if (video.read(frame) && (int) video.get(Videoio.CAP_PROP_POS_FRAMES) - frameNum < frameDuration) {
@@ -69,7 +73,7 @@ public class HighlightExtractor {
 
             int firstCutFrame = 0;
             double maxDiff = Double.MIN_VALUE;
-            for (int i = 0; i < diffArray.length / 5; i++) {
+            for (int i = 0; i < diffArray.length / 4; i++) {
                 if (diffArray[i] > maxDiff) {
                     maxDiff = diffArray[i];
                     firstCutFrame = i;
@@ -84,6 +88,15 @@ public class HighlightExtractor {
                     secondCutFrame = i;
                 }
             }
+
+            VideoWriter writer = new VideoWriter(frameNum + ".avi", VideoWriter.fourcc('F', 'M', 'P', '4'), 30, frame.size());
+            video.set(Videoio.CAP_PROP_POS_FRAMES, frameNum + firstCutFrame);
+            while(video.get(Videoio.CAP_PROP_POS_FRAMES) < frameNum + secondCutFrame){
+                video.read(frame);
+                writer.write(frame);
+            }
+            writer.release();
+
             System.out.println("Start: " + (frameNum + firstCutFrame) + " End: " + (frameNum + secondCutFrame));
         }
     }

@@ -112,7 +112,7 @@ public class InfoExtractor {
 
     private int binarySearchForScoreFrame(String filename, int frameStart, int frameEnd, int score, int whichTeam) {
 
-        if (Math.abs(frameEnd - frameStart) < 100) return frameStart;
+        if (Math.abs(frameEnd - frameStart) < 90) return frameStart;
         else {
             int mid = (frameStart + frameEnd) / 2;
             VideoCapture video = new VideoCapture(filename);
@@ -135,11 +135,11 @@ public class InfoExtractor {
                         return binarySearchForScoreFrame(filename, mid, frameEnd, score, whichTeam);
                     } else {
                         //System.out.println("unclear");
-                        return binarySearchForScoreFrame(filename, frameStart + 200, frameEnd, score, whichTeam);
+                        return binarySearchForScoreFrame(filename, frameStart, frameEnd - 100, score, whichTeam);
                     }
                 } else {
                     //System.out.println("unclear");
-                    return binarySearchForScoreFrame(filename, frameStart + 200, frameEnd, score, whichTeam);
+                    return binarySearchForScoreFrame(filename, frameStart, frameEnd - 100, score, whichTeam);
                 }
             } catch (Exception e) {
                 e.printStackTrace();
