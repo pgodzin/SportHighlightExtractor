@@ -104,41 +104,42 @@ public class InfoExtractor {
     }
 
     private int extractHockeyScoreFrame(int frameNum, String filename, int framesToSkip, int score, int whichTeam) {
+        System.out.println("Searching for score change frame...");
         int scoreFrameNum = binarySearchForScoreFrame(filename, frameNum - framesToSkip, frameNum, score, whichTeam);
-        System.out.println(scoreFrameNum);
+        System.out.println("Found: " + scoreFrameNum);
         return scoreFrameNum;
     }
 
 
     private int binarySearchForScoreFrame(String filename, int frameStart, int frameEnd, int score, int whichTeam) {
 
-        if (Math.abs(frameEnd - frameStart) < 90) return frameStart;
+        VideoCapture video = new VideoCapture(filename);
+        if (Math.abs(frameEnd - frameStart) < 50) {
+            video.release();
+            return frameStart;
+        }
         else {
             int mid = (frameStart + frameEnd) / 2;
-            VideoCapture video = new VideoCapture(filename);
             video.set(Videoio.CAP_PROP_POS_FRAMES, mid);
             Mat frame = new Mat();
             video.read(frame);
-            Mat scores = frame.submat(40, 80, 108, 135);
-            scores = adjustScoreMat(scores);
-            //ImageUtils.display(scores, "binary_score");
+            //ImageUtils.display(frame, "binary_score");
             try {
+                Mat scores = frame.submat(40, 80, 108, 135);
+                scores = adjustScoreMat(scores);
+                //ImageUtils.display(scores, "binary_score");
                 String scoresText = ocr.doOCR(ImageUtils.Mat2BufferedImage(scores));
                 if (scoresText.split("\\n").length == 2) {
                     String newScore = scoresText.split("\\n")[whichTeam];
                     newScore = correctOCR(newScore);
                     if (newScore.length() == 1 && Character.isDigit(newScore.charAt(0)) && Integer.parseInt(newScore) == score) {
-                        //System.out.println("left");
                         return binarySearchForScoreFrame(filename, frameStart, mid, score, whichTeam);
                     } else if (newScore.length() == 1 && Character.isDigit(newScore.charAt(0)) && score - Integer.parseInt(newScore) == 1) {
-                        //System.out.println("right");
                         return binarySearchForScoreFrame(filename, mid, frameEnd, score, whichTeam);
                     } else {
-                        //System.out.println("unclear");
                         return binarySearchForScoreFrame(filename, frameStart, frameEnd - 100, score, whichTeam);
                     }
                 } else {
-                    //System.out.println("unclear");
                     return binarySearchForScoreFrame(filename, frameStart, frameEnd - 100, score, whichTeam);
                 }
             } catch (Exception e) {
