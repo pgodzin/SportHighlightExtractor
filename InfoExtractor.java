@@ -83,7 +83,7 @@ public class InfoExtractor {
 
         Mat scoreMat = frame.submat(40, 80, 108, 135);
         scoreMat = adjustScoreMat(scoreMat);
-        //ImageUtils.display(scores, "score");
+        //ImageUtils.display(scoreMat, "score");
 
         try {
 
@@ -114,17 +114,28 @@ public class InfoExtractor {
     private int binarySearchForScoreFrame(String filename, int frameStart, int frameEnd, int score, int whichTeam) {
 
         VideoCapture video = new VideoCapture(filename);
-        if (Math.abs(frameEnd - frameStart) < 50) {
+        if (Math.abs(frameEnd - frameStart) < 100) {
             video.release();
             return frameStart;
-        }
-        else {
+        } else {
             int mid = (frameStart + frameEnd) / 2;
             video.set(Videoio.CAP_PROP_POS_FRAMES, mid);
             Mat frame = new Mat();
             video.read(frame);
             //ImageUtils.display(frame, "binary_score");
             try {
+                if (frame.dims() == 0) {
+                    video.read(frame);
+                    //System.out.println("dim issues!");
+                }
+                Mat goal = frame.submat(55, 80, 70, 150);
+                System.out.println(correctOCR(ocr.doOCR(ImageUtils.Mat2BufferedImage(goal))));
+                if (correctOCR(ocr.doOCR(ImageUtils.Mat2BufferedImage(goal))).equals("GOAL")) {
+                    System.out.println("goal identified");
+                    video.release();
+                    return mid;
+                }
+
                 Mat scores = frame.submat(40, 80, 108, 135);
                 scores = adjustScoreMat(scores);
                 //ImageUtils.display(scores, "binary_score");
@@ -133,19 +144,24 @@ public class InfoExtractor {
                     String newScore = scoresText.split("\\n")[whichTeam];
                     newScore = correctOCR(newScore);
                     if (newScore.length() == 1 && Character.isDigit(newScore.charAt(0)) && Integer.parseInt(newScore) == score) {
+                        video.release();
                         return binarySearchForScoreFrame(filename, frameStart, mid, score, whichTeam);
                     } else if (newScore.length() == 1 && Character.isDigit(newScore.charAt(0)) && score - Integer.parseInt(newScore) == 1) {
+                        video.release();
                         return binarySearchForScoreFrame(filename, mid, frameEnd, score, whichTeam);
                     } else {
-                        return binarySearchForScoreFrame(filename, frameStart, frameEnd - 100, score, whichTeam);
+                        video.release();
+                        return binarySearchForScoreFrame(filename, frameStart, frameEnd - 50, score, whichTeam);
                     }
                 } else {
-                    return binarySearchForScoreFrame(filename, frameStart, frameEnd - 100, score, whichTeam);
+                    video.release();
+                    return binarySearchForScoreFrame(filename, frameStart, frameEnd - 50, score, whichTeam);
                 }
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
+        video.release();
         return -1;
     }
 
@@ -204,6 +220,7 @@ public class InfoExtractor {
         s = s.replace("`", "");
         s = s.replace("‘", "");
         s = s.replace("\"", "");
+        s = s.replace("\n", "");
         if (s.equals("T")) return "1";
         else if (s.equals("I")) return "1";
         else if (s.equals("i")) return "1";

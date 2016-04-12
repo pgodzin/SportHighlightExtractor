@@ -1,12 +1,11 @@
-import org.opencv.core.Core;
-import org.opencv.core.Mat;
-import org.opencv.core.Size;
+import org.opencv.core.*;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.videoio.VideoCapture;
 import org.opencv.videoio.VideoWriter;
 import org.opencv.videoio.Videoio;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class HighlightExtractor {
 
@@ -34,37 +33,57 @@ public class HighlightExtractor {
     }
 
     private static void extractHighlightVideos() {
-        int[] s = {18065, 151529, 167268};
+        VideoCapture v = new VideoCapture(filename);
 
+        int[] s = {18215, 151779, 167518};
+        //int[] s = {18455, 151529, 167268};
+
+        double diff = 0;
         Mat frame = new Mat();
         Mat prev = new Mat();
+        MatOfFloat ranges = new MatOfFloat(0f, 256f, 0f, 256f, 0f, 256f);
+        MatOfInt histSize = new MatOfInt(8, 8, 8);
+        MatOfInt channels = new MatOfInt(0, 1, 2);
+        Mat histPrev = new Mat();
+        Mat histFrame = new Mat();
+
         for (Integer frameNum : s) {
-            video = new VideoCapture(filename);
-            video.set(Videoio.CAP_PROP_POS_FRAMES, frameNum);
+            v.set(Videoio.CAP_PROP_POS_FRAMES, frameNum);
 
-            video.read(prev);
-            prev = prev.submat(200, prev.rows() - 200, 400, prev.cols() - 400);
+            v.read(prev);
+            //prev = prev.submat(200, prev.rows() - 200, 400, prev.cols() - 400);
             //prev = prev.submat(0, prev.rows(), 0, prev.cols());
-            Imgproc.cvtColor(prev, prev, Imgproc.COLOR_BGR2GRAY);
-            int frameDuration = 2000; // Check the 1 mins following a score for a replay
-            double[] diffArray = new double[frameDuration];
-            while (video.isOpened()) {
-                if (video.read(frame) && (int) video.get(Videoio.CAP_PROP_POS_FRAMES) - frameNum < frameDuration) {
-                    frame = frame.submat(200, frame.rows() - 200, 400, frame.cols() - 400);
-                    //frame = frame.submat(0, frame.rows(), 0, frame.cols());
-                    Imgproc.cvtColor(frame, frame, Imgproc.COLOR_BGR2GRAY);
-                    //ImageUtils.display(frame, "frame");
+            prev = prev.submat(125, prev.rows() - 125, 250, prev.cols() - 250);
+            Imgproc.cvtColor(prev, prev, Imgproc.COLOR_BGR2HSV);
+            int frameDuration = 3000; // Check the 1 mins following a score for a replay
+            double[] diffArray = new double[frameDuration / 2];
 
-                    double diff = 0;
+            while (v.isOpened()) {
+                if (v.read(frame) && v.read(frame) && (int) v.get(Videoio.CAP_PROP_POS_FRAMES) - frameNum < frameDuration) {
+                    //frame = frame.submat(0, frame.rows(), 0, frame.cols());
+                    //ImageUtils.display(frame, "frame");
+                    // frame = frame.submat(200, frame.rows() - 200, 400, frame.cols() - 400);
+                    frame = frame.submat(125, frame.rows() - 125, 250, frame.cols() - 250);
+                    Imgproc.cvtColor(frame, frame, Imgproc.COLOR_BGR2HSV);
+
+
+                    Imgproc.calcHist(Arrays.asList(prev), channels, new Mat(), histPrev, histSize, ranges);
+                    Imgproc.calcHist(Arrays.asList(frame), channels, new Mat(), histFrame, histSize, ranges);
+                    diff = Imgproc.compareHist(histPrev, histFrame, Imgproc.CV_COMP_CHISQR);
                     for (int r = 0; r < frame.rows(); r++) {
                         for (int c = 0; c < frame.cols(); c++) {
-                            diff += Math.abs(frame.get(r, c)[0] - prev.get(r, c)[0]);
+                            double f = frame.get(r, c)[0];
+                            //diff += Math.abs(frame.get(r, c)[0] - prev.get(r, c)[0]);
                         }
                     }
-                    diffArray[(int) video.get(Videoio.CAP_PROP_POS_FRAMES) - frameNum - 2] = diff / (frame.cols() * frame.rows());
-                    //System.out.println(diff / (frame.cols() * frame.rows()));
+                    diff /= (frame.cols() * frame.rows());
+                    int index = (int) (v.get(Videoio.CAP_PROP_POS_FRAMES) - frameNum - 2) / 2;
+                    diffArray[index] = diff;
+                    if (diff > 50) {
+                        //ImageUtils.display(frame, "frame");
+                        //System.out.println(diff);
+                    }
                     prev = frame.clone();
-
                 } else break;
             }
 
@@ -80,7 +99,7 @@ public class HighlightExtractor {
             int secondCutFrame = firstCutFrame;
             maxDiff = Double.MIN_VALUE;
             for (int i = firstCutFrame + 300; i < diffArray.length; i++) {
-                if (diffArray[i] > maxDiff ) {
+                if (diffArray[i] > maxDiff) {
                     maxDiff = diffArray[i];
                     secondCutFrame = i;
                 }
@@ -90,17 +109,18 @@ public class HighlightExtractor {
 
             System.out.println("Start: " + (frameNum + firstCutFrame) + " End: " + (frameNum + secondCutFrame));
         }
+        v.release();
     }
 
-    private static void writeHighlight(final int frameNum, final Size frameSize, final int firstCutFrame, final int secondCutFrame){
-        new Thread(){
-            public void run(){
+    private static void writeHighlight(final int frameNum, final Size frameSize, final int firstCutFrame, final int secondCutFrame) {
+        new Thread() {
+            public void run() {
                 System.out.println("Writing highlight...");
                 VideoCapture capture = new VideoCapture(filename);
                 Mat frame = new Mat();
                 VideoWriter writer = new VideoWriter(frameNum + ".avi", VideoWriter.fourcc('F', 'M', 'P', '4'), 30, frameSize);
                 capture.set(Videoio.CAP_PROP_POS_FRAMES, frameNum + firstCutFrame);
-                while(capture.get(Videoio.CAP_PROP_POS_FRAMES) < frameNum + secondCutFrame){
+                while (capture.get(Videoio.CAP_PROP_POS_FRAMES) < frameNum + secondCutFrame) {
                     capture.read(frame);
                     writer.write(frame);
                 }
