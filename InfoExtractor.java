@@ -52,10 +52,11 @@ public class InfoExtractor {
             //System.out.println(teamsText);
 
             if (teamsText.split("\\n").length == 2) {
-                String team1 = teamsText.split("\\n")[0];
-                String team2 = teamsText.split("\\n")[1];
+                String team1 = correctOCR(teamsText.split("\\n")[0]);
+                String team2 = correctOCR(teamsText.split("\\n")[1]);
                 team1 = team1.replace("NV", "NY");
                 team2 = team2.replace("NV", "NY");
+                //System.out.println(team1 + " & " + team2);
                 if (validTeamName(team1) && validTeamName(team2)) {
                     teamNames[0] = team1;
                     teamNames[1] = team2;
@@ -81,7 +82,7 @@ public class InfoExtractor {
     private String[] extractHockeyScore(Mat frame) {
         String[] scores = new String[2];
 
-        Mat scoreMat = frame.submat(40, 80, 108, 135);
+        Mat scoreMat = frame.submat(40, 80, 110, 135);
         scoreMat = adjustScoreMat(scoreMat);
         //ImageUtils.display(scoreMat, "score");
 
@@ -95,6 +96,7 @@ public class InfoExtractor {
                 String score2 = scoresText.split("\\n")[1];
                 scores[0] = correctOCR(score1);
                 scores[1] = correctOCR(score2);
+                //System.out.println(score1 + " -- " + score2);
                 //System.out.println(score1 + " -- " + score2);
             }
         } catch (TesseractException e) {
@@ -129,17 +131,19 @@ public class InfoExtractor {
                     //System.out.println("dim issues!");
                 }
                 Mat goal = frame.submat(55, 80, 70, 150);
-                System.out.println(correctOCR(ocr.doOCR(ImageUtils.Mat2BufferedImage(goal))));
+                //ImageUtils.display(goal, "goal");
+                //System.out.println(correctOCR(ocr.doOCR(ImageUtils.Mat2BufferedImage(goal))));
                 if (correctOCR(ocr.doOCR(ImageUtils.Mat2BufferedImage(goal))).equals("GOAL")) {
                     System.out.println("goal identified");
                     video.release();
                     return mid;
                 }
 
-                Mat scores = frame.submat(40, 80, 108, 135);
+                Mat scores = frame.submat(40, 80, 110, 135);
                 scores = adjustScoreMat(scores);
-                //ImageUtils.display(scores, "binary_score");
+                ImageUtils.display(scores, "binary_score");
                 String scoresText = ocr.doOCR(ImageUtils.Mat2BufferedImage(scores));
+                System.out.println(scoresText);
                 if (scoresText.split("\\n").length == 2) {
                     String newScore = scoresText.split("\\n")[whichTeam];
                     newScore = correctOCR(newScore);
@@ -217,6 +221,7 @@ public class InfoExtractor {
         s = s.replace("—", "");
         s = s.replace("_", "");
         s = s.replace("'", "");
+        s = s.replace("|", "");
         s = s.replace("`", "");
         s = s.replace("‘", "");
         s = s.replace("\"", "");
