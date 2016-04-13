@@ -42,7 +42,7 @@ public class InfoExtractor {
         return new String[2];
     }
 
-    private String[] extractHockeyTeamNames(Mat frame) {
+    public String[] extractHockeyTeamNames(Mat frame) {
         String[] teamNames = new String[2];
         try {
             Mat teams = frame.submat(43, 80, 50, 100);

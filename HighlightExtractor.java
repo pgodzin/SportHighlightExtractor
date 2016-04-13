@@ -13,8 +13,7 @@ public class HighlightExtractor {
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
     }
 
-    static String filename = "hockey_full_test2.mp4";
-    static VideoCapture video = new VideoCapture(filename);
+    static String filename = "hockey_full_test.mp4";
     static InfoExtractor infoExtractor = new InfoExtractor();
     static String team1Name = "";
     static String team2Name = "";
@@ -35,8 +34,8 @@ public class HighlightExtractor {
     private static void extractHighlightVideos() {
 
 
-        final int[] s = {137841};
-        //final int[] s = {18239, 151663, 167535};
+        //final int[] s = {18470};
+        final int[] s = {18239, 151663, 167535};
         //int[] s = {35727, 63416, 75017, 137841};
 
         final MatOfFloat ranges = new MatOfFloat(0f, 256f, 0f, 256f, 0f, 256f);
@@ -44,12 +43,55 @@ public class HighlightExtractor {
         final MatOfInt channels = new MatOfInt(0, 1, 2);
 
         for (final Integer frameNum : s) {
-            new Thread() {
+            extractVideoWithScoreboard(frameNum);
+            /*new Thread() {
                 public void run() {
-                    extractVideo(frameNum, channels, histSize, ranges);
+                    //extractVideo(frameNum, channels, histSize, ranges);
                 }
-            }.start();
+            }.start();*/
         }
+    }
+
+    private static void extractVideoWithScoreboard(int frameNum) {
+        Mat frame = new Mat();
+        int frameDuration = 2400;
+        System.out.println("Extracting " + frameNum);
+        VideoCapture v = new VideoCapture(filename);
+        v.set(Videoio.CAP_PROP_POS_FRAMES, frameNum);
+        boolean boardSeen = false;
+        boolean startIdentified = false;
+        int firstCutFrame = 0;
+        int secondCutFrame = 0;
+
+        while (v.isOpened()) {
+            if (v.read(frame) && (int) v.get(Videoio.CAP_PROP_POS_FRAMES) - frameNum < frameDuration) {
+                //frame = frame.submat(0, frame.rows(), 0, frame.cols());
+                ImageUtils.display(frame, "frame");
+                String[] names = infoExtractor.extractHockeyTeamNames(frame);
+                if (!boardSeen && names[0] != null && names[1] != null) {
+                    boardSeen = true;
+                    System.out.println("Board seen");
+                } else if (boardSeen && !startIdentified && names[0] == null && names[1] == null) {
+                    firstCutFrame = (int) v.get(Videoio.CAP_PROP_POS_FRAMES) - frameNum;
+                    startIdentified = true;
+                    System.out.println("Start identified");
+                } else if (startIdentified && names[0] != null && names[1] != null) {
+                    secondCutFrame = (int) v.get(Videoio.CAP_PROP_POS_FRAMES) - frameNum;
+                    System.out.println("End identified");
+                    break;
+                }
+                double frameCount = v.get(Videoio.CAP_PROP_FRAME_COUNT);
+                double posFrames = v.get(Videoio.CAP_PROP_POS_FRAMES);
+                if (frameCount - posFrames < 30) break;
+                v.set(Videoio.CAP_PROP_POS_FRAMES, posFrames + 30);
+            } else break;
+        }
+
+        writeHighlight(frameNum, frame.size(), firstCutFrame, secondCutFrame);
+
+        System.out.println("Start: " + (frameNum + firstCutFrame) + " End: " + (frameNum + secondCutFrame));
+
+        v.release();
     }
 
     private static void extractVideo(int frameNum, MatOfInt channels, MatOfInt histSize, MatOfFloat ranges) {
@@ -63,9 +105,8 @@ public class HighlightExtractor {
         v.set(Videoio.CAP_PROP_POS_FRAMES, frameNum);
 
         v.read(prev);
-        //prev = prev.submat(200, prev.rows() - 200, 400, prev.cols() - 400);
-        //prev = prev.submat(0, prev.rows(), 0, prev.cols());
-        prev = prev.submat(125, prev.rows() - 125, 250, prev.cols() - 250);
+        prev = prev.submat(0, prev.rows(), 0, prev.cols());
+        //prev = prev.submat(125, prev.rows() - 125, 250, prev.cols() - 250);
         //Imgproc.cvtColor(prev, prev, Imgproc.COLOR_BGR2HSV);
         int frameDuration = 2400; // Check the 1 mins following a score for a replay
         double[] diffHistArray = new double[frameDuration];
@@ -73,10 +114,9 @@ public class HighlightExtractor {
 
         while (v.isOpened()) {
             if (v.read(frame) && (int) v.get(Videoio.CAP_PROP_POS_FRAMES) - frameNum < frameDuration) {
-                //frame = frame.submat(0, frame.rows(), 0, frame.cols());
-                //ImageUtils.display(frame, "frame");
-                // frame = frame.submat(200, frame.rows() - 200, 400, frame.cols() - 400);
-                frame = frame.submat(125, frame.rows() - 125, 250, frame.cols() - 250);
+                frame = frame.submat(0, frame.rows(), 0, frame.cols());
+                ImageUtils.display(frame, "frame");
+                //frame = frame.submat(125, frame.rows() - 125, 250, frame.cols() - 250);
                 //Imgproc.cvtColor(frame, frame, Imgproc.COLOR_BGR2HSV);
 
 
@@ -138,13 +178,14 @@ public class HighlightExtractor {
         v.release();
     }
 
-    private static void writeHighlight(final int frameNum, final Size frameSize, final int firstCutFrame, final int secondCutFrame) {
+    private static void writeHighlight(final int frameNum, final Size frameSize, final int firstCutFrame,
+                                       final int secondCutFrame) {
         new Thread() {
             public void run() {
                 System.out.println("Writing highlight...");
                 VideoCapture capture = new VideoCapture(filename);
                 Mat frame = new Mat();
-                VideoWriter writer = new VideoWriter(frameNum + ".avi", VideoWriter.fourcc('F', 'M', 'P', '4'), 30, frameSize);
+                VideoWriter writer = new VideoWriter(frameNum + "SB.avi", VideoWriter.fourcc('F', 'M', 'P', '4'), 30, frameSize);
                 capture.set(Videoio.CAP_PROP_POS_FRAMES, frameNum + firstCutFrame);
                 while (capture.get(Videoio.CAP_PROP_POS_FRAMES) < frameNum + secondCutFrame) {
                     capture.read(frame);
@@ -157,6 +198,7 @@ public class HighlightExtractor {
     }
 
     private static void getTeamInfoAndScoreChangeFrames() {
+        VideoCapture video = new VideoCapture(filename);
         Mat frame = new Mat();
         while (video.isOpened()) {
             if (video.read(frame)) {
@@ -190,6 +232,7 @@ public class HighlightExtractor {
 
             }
         }
+        video.release();
     }
 
 
