@@ -141,9 +141,9 @@ public class InfoExtractor {
 
                 Mat scores = frame.submat(40, 80, 110, 135);
                 scores = adjustScoreMat(scores);
-                ImageUtils.display(scores, "binary_score");
+                //ImageUtils.display(scores, "binary_score");
                 String scoresText = ocr.doOCR(ImageUtils.Mat2BufferedImage(scores));
-                System.out.println(scoresText);
+                //System.out.println(scoresText);
                 if (scoresText.split("\\n").length == 2) {
                     String newScore = scoresText.split("\\n")[whichTeam];
                     newScore = correctOCR(newScore);

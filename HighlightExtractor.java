@@ -13,7 +13,7 @@ public class HighlightExtractor {
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
     }
 
-    static String filename = "hockey_full_test.mp4";
+    static String filename = "hockey_full_test2.mp4";
     static VideoCapture video = new VideoCapture(filename);
     static InfoExtractor infoExtractor = new InfoExtractor();
     static String team1Name = "";
@@ -25,7 +25,7 @@ public class HighlightExtractor {
 
     public static void main(String[] args) {
 
-        getTeamInfoAndScoreChangeFrames();
+        //getTeamInfoAndScoreChangeFrames();
 
         extractHighlightVideos();
 
@@ -33,59 +33,71 @@ public class HighlightExtractor {
     }
 
     private static void extractHighlightVideos() {
-        VideoCapture v = new VideoCapture(filename);
 
-        //int[] s = {18239, 151663, 167535};
-        int[] s = {35727, 63416, 75017, 137841};
 
-        double diff = 0;
+        final int[] s = {137841};
+        //final int[] s = {18239, 151663, 167535};
+        //int[] s = {35727, 63416, 75017, 137841};
+
+        final MatOfFloat ranges = new MatOfFloat(0f, 256f, 0f, 256f, 0f, 256f);
+        final MatOfInt histSize = new MatOfInt(8, 8, 8);
+        final MatOfInt channels = new MatOfInt(0, 1, 2);
+
+        for (final Integer frameNum : s) {
+            new Thread() {
+                public void run() {
+                    extractVideo(frameNum, channels, histSize, ranges);
+                }
+            }.start();
+        }
+    }
+
+    private static void extractVideo(int frameNum, MatOfInt channels, MatOfInt histSize, MatOfFloat ranges) {
         Mat frame = new Mat();
         Mat prev = new Mat();
-        MatOfFloat ranges = new MatOfFloat(0f, 256f, 0f, 256f, 0f, 256f);
-        MatOfInt histSize = new MatOfInt(8, 8, 8);
-        MatOfInt channels = new MatOfInt(0, 1, 2);
         Mat histPrev = new Mat();
         Mat histFrame = new Mat();
+        System.out.println("Extracting " + frameNum);
+        double diff = 0;
+        VideoCapture v = new VideoCapture(filename);
+        v.set(Videoio.CAP_PROP_POS_FRAMES, frameNum);
 
-        for (Integer frameNum : scoreChangeFrames) {
-            v.set(Videoio.CAP_PROP_POS_FRAMES, frameNum);
+        v.read(prev);
+        //prev = prev.submat(200, prev.rows() - 200, 400, prev.cols() - 400);
+        //prev = prev.submat(0, prev.rows(), 0, prev.cols());
+        prev = prev.submat(125, prev.rows() - 125, 250, prev.cols() - 250);
+        //Imgproc.cvtColor(prev, prev, Imgproc.COLOR_BGR2HSV);
+        int frameDuration = 2400; // Check the 1 mins following a score for a replay
+        double[] diffHistArray = new double[frameDuration];
+        double[] diffMotionArray = new double[frameDuration];
 
-            v.read(prev);
-            //prev = prev.submat(200, prev.rows() - 200, 400, prev.cols() - 400);
-            //prev = prev.submat(0, prev.rows(), 0, prev.cols());
-            prev = prev.submat(125, prev.rows() - 125, 250, prev.cols() - 250);
-            Imgproc.cvtColor(prev, prev, Imgproc.COLOR_BGR2HSV);
-            int frameDuration = 3000; // Check the 1 mins following a score for a replay
-            double[] diffHistArray = new double[frameDuration / 2];
-            double[] diffMotionArray = new double[frameDuration / 2];
-
-            while (v.isOpened()) {
-                if (v.read(frame) && v.read(frame) && (int) v.get(Videoio.CAP_PROP_POS_FRAMES) - frameNum < frameDuration) {
-                    //frame = frame.submat(0, frame.rows(), 0, frame.cols());
-                    //ImageUtils.display(frame, "frame");
-                    // frame = frame.submat(200, frame.rows() - 200, 400, frame.cols() - 400);
-                    frame = frame.submat(125, frame.rows() - 125, 250, frame.cols() - 250);
-                    Imgproc.cvtColor(frame, frame, Imgproc.COLOR_BGR2HSV);
+        while (v.isOpened()) {
+            if (v.read(frame) && (int) v.get(Videoio.CAP_PROP_POS_FRAMES) - frameNum < frameDuration) {
+                //frame = frame.submat(0, frame.rows(), 0, frame.cols());
+                //ImageUtils.display(frame, "frame");
+                // frame = frame.submat(200, frame.rows() - 200, 400, frame.cols() - 400);
+                frame = frame.submat(125, frame.rows() - 125, 250, frame.cols() - 250);
+                //Imgproc.cvtColor(frame, frame, Imgproc.COLOR_BGR2HSV);
 
 
-                    Imgproc.calcHist(Arrays.asList(prev), channels, new Mat(), histPrev, histSize, ranges);
-                    Imgproc.calcHist(Arrays.asList(frame), channels, new Mat(), histFrame, histSize, ranges);
-                    diff = Imgproc.compareHist(histPrev, histFrame, Imgproc.CV_COMP_CHISQR);
-                    double diff2 = 0;
-                    for (int r = 0; r < frame.rows(); r++) {
-                        for (int c = 0; c < frame.cols(); c++) {
-                            //double f = frame.get(r, c)[0];
-                            diff2 += Math.abs(frame.get(r, c)[0] - prev.get(r, c)[0]);
-                        }
+                Imgproc.calcHist(Arrays.asList(prev), channels, new Mat(), histPrev, histSize, ranges);
+                Imgproc.calcHist(Arrays.asList(frame), channels, new Mat(), histFrame, histSize, ranges);
+                diff = Imgproc.compareHist(histPrev, histFrame, Imgproc.CV_COMP_CHISQR);
+                double diff2 = 0;
+                for (int r = 0; r < frame.rows(); r++) {
+                    for (int c = 0; c < frame.cols(); c++) {
+                        //double f = frame.get(r, c)[0];
+                        diff2 += Math.abs(frame.get(r, c)[0] - prev.get(r, c)[0]);
                     }
-                    diff /= (frame.cols() * frame.rows());
-                    diff2 /= (frame.cols() * frame.rows());
-                    int index = (int) (v.get(Videoio.CAP_PROP_POS_FRAMES) - frameNum - 2) / 2;
-                    diffHistArray[index] = diff;
-                    diffMotionArray[index] = diff2;
-                    if (diff > 50) {
-                        ImageUtils.display(frame, "frame");
-                        System.out.println(diff + " and " + diff2);
+                }
+                diff /= (frame.cols() * frame.rows());
+                diff2 /= (frame.cols() * frame.rows());
+                int index = (int) (v.get(Videoio.CAP_PROP_POS_FRAMES) - frameNum - 2);
+                diffHistArray[index] = diff;
+                diffMotionArray[index] = diff2;
+                if (diff > 100) {
+                    ImageUtils.display(frame, "frame");
+                    System.out.println((int) (v.get(Videoio.CAP_PROP_POS_FRAMES) - frameNum - 2) + ": " + diff + " & " + diff2);
                         /*Imgproc.cvtColor(prev, prev, Imgproc.COLOR_HSV2BGR);
                         ImageUtils.display(prev, "frame");
                         Mat filteredMat = new Mat();
@@ -93,33 +105,36 @@ public class HighlightExtractor {
                         double whitePixels = Core.countNonZero(filteredMat);
                         ImageUtils.display(filteredMat, "frame");
                         System.out.println(whitePixels / (frame.rows() * frame.cols()));*/
-                    }
-                    prev = frame.clone();
-                } else break;
-            }
-
-            int firstCutFrame = 0;
-            double maxDiff = Double.MIN_VALUE;
-            for (int i = 0; i < diffHistArray.length / 3; i++) {
-                if (diffHistArray[i] > maxDiff) {
-                    maxDiff = diffHistArray[i];
-                    firstCutFrame = i;
                 }
-            }
-
-            int secondCutFrame = firstCutFrame;
-            maxDiff = Double.MIN_VALUE;
-            for (int i = firstCutFrame + 250; i < diffHistArray.length; i++) {
-                if (diffHistArray[i] > maxDiff) {
-                    maxDiff = diffHistArray[i];
-                    secondCutFrame = i;
-                }
-            }
-
-            writeHighlight(frameNum, frame.size(), firstCutFrame, secondCutFrame);
-
-            System.out.println("Start: " + (frameNum + firstCutFrame) + " End: " + (frameNum + secondCutFrame));
+                prev = frame.clone();
+            } else break;
         }
+
+        new CutDetectionLineChart(diffHistArray);
+
+        int firstCutFrame = 0;
+        double maxDiff = Double.MIN_VALUE;
+        for (int i = 0; i < diffHistArray.length / 3; i++) {
+            if (diffHistArray[i] > 100 && diffMotionArray[i] > 40) {
+                //maxDiff = diffHistArray[i];
+                firstCutFrame = i;
+                break;
+            }
+        }
+
+        int secondCutFrame = firstCutFrame;
+        maxDiff = Double.MIN_VALUE;
+        for (int i = firstCutFrame + 250; i < diffHistArray.length; i++) {
+            if (diffHistArray[i] > 160 && diffHistArray[i] < 2000 && diffMotionArray[i] > 40) {
+                //maxDiff = diffHistArray[i];
+                secondCutFrame = i;
+                break;
+            }
+        }
+
+        writeHighlight(frameNum, frame.size(), firstCutFrame, secondCutFrame);
+
+        System.out.println("Start: " + (frameNum + firstCutFrame) + " End: " + (frameNum + secondCutFrame));
         v.release();
     }
 
