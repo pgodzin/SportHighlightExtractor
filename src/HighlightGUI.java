@@ -67,7 +67,7 @@ public class HighlightGUI extends JPanel
 
 
         //Create the demo's UI.
-        startButton = new JButton("Start/Stop");
+        startButton = new JButton("Start");
         startButton.setActionCommand("start");
         startButton.addActionListener(this);
 
@@ -170,6 +170,7 @@ public class HighlightGUI extends JPanel
     private static void createAndShowGUI() {
         //Create and set up the window.
         JFrame frame = new JFrame("HighlightGUI");
+        frame.setSize(900,500);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         //Create and set up the content pane.
@@ -178,7 +179,7 @@ public class HighlightGUI extends JPanel
         frame.setContentPane(newContentPane);
 
         //Display the window.
-        frame.pack();
+        //frame.pack();
         frame.setVisible(true);
     }
 

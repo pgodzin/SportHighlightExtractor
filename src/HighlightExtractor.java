@@ -7,8 +7,6 @@ import org.opencv.highgui.VideoCapture;
 import org.opencv.imgproc.Imgproc;
 
 import javax.swing.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -44,7 +42,6 @@ public class HighlightExtractor {
         bar = progressBar;
 
         frameAndComp = new HashMap<>();
-        frameAndFileName = new HashMap<>();
         getTeamInfoAndScoreChangeFrames();
         extractHighlightVideos();
     }
@@ -199,7 +196,7 @@ public class HighlightExtractor {
         v.release();
     }
 
-    private static void writeHighlight(final int frameNum, final Size frameSize, final int firstCutFrame,
+   /* private static void writeHighlight(final int frameNum, final Size frameSize, final int firstCutFrame,
                                        final int secondCutFrame) {
         new Thread() {
             public void run() {
@@ -216,6 +213,8 @@ public class HighlightExtractor {
                 System.out.println("Highlight is ready");
                 //frameAndFileName.put(Integer.valueOf(frameNum),frameNum + "SB.avi" )
 
+                frameAndComp.get(frameNum).setEnabled(true);
+                frameAndComp.get(frameNum).setText("PLAY");
                 frameAndComp.get(frameNum).addActionListener(new ActionListener() {
                     public void actionPerformed(ActionEvent e)
                     {
@@ -230,7 +229,7 @@ public class HighlightExtractor {
                 writer.release();
             }
         }.start();
-    }
+    }*/
 
     public static int getProgress(){
         return progress;
@@ -278,6 +277,7 @@ public class HighlightExtractor {
                     subPanel.setName("" + frameNum);
                     subPanel.add(new JLabel(team1Name +" " + team1Score + " - " + team2Name + " " +  team2Score));
                     JButton aComponent = new JButton();
+                    aComponent.setEnabled(false);
                     subPanel.add(aComponent);
                     panel.add(subPanel);
                     frameAndComp.put(Integer.valueOf(frameNum), aComponent);
@@ -292,6 +292,7 @@ public class HighlightExtractor {
                     subPanel.setName("" + frameNum);
                     subPanel.add(new JLabel(team1Name +" " + team1Score + " - " + team2Name + " " +  team2Score));
                     JButton aComponent = new JButton();
+                    aComponent.setEnabled(false);
                     subPanel.add(aComponent);
                     panel.add(subPanel);
                     frameAndComp.put(Integer.valueOf(frameNum), aComponent);
