@@ -17,7 +17,7 @@ import org.jfree.ui.RefineryUtilities;
 public class CutDetectionLineChart extends ApplicationFrame {
     double[] data;
 
-    public CutDetectionLineChart(double[] data) {
+    public CutDetectionLineChart(double[] data, String diffType, int range) {
         super("Histogram Difference Between Frames ");
         this.pack();
         RefineryUtilities.centerFrameOnScreen(this);
@@ -25,7 +25,7 @@ public class CutDetectionLineChart extends ApplicationFrame {
 
         this.data = data;
         JFreeChart lineChart = ChartFactory.createXYLineChart(
-                "Histogram Difference Between Frames ",
+                diffType + " Difference Between Frames ",
                 "Frame", "Difference",
                 createDataset(),
                 PlotOrientation.VERTICAL,
@@ -33,7 +33,7 @@ public class CutDetectionLineChart extends ApplicationFrame {
 
         XYPlot plot = (XYPlot) lineChart.getPlot();
         ValueAxis yAxis = plot.getRangeAxis();
-        yAxis.setRange(0, 2000.0);
+        yAxis.setRange(0, range);
         ValueAxis xAxis = plot.getDomainAxis();
         xAxis.setRange(0, 3000.0);
 

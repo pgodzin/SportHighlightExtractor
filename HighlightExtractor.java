@@ -1,3 +1,4 @@
+import net.sourceforge.tess4j.Tesseract;
 import org.opencv.core.*;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.videoio.VideoCapture;
@@ -13,7 +14,7 @@ public class HighlightExtractor {
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
     }
 
-    static String filename = "hockey_full_test.mp4";
+    static String filename = "test1.mp4";
     static InfoExtractor infoExtractor = new InfoExtractor();
     static String team1Name = "";
     static String team2Name = "";
@@ -24,7 +25,7 @@ public class HighlightExtractor {
 
     public static void main(String[] args) {
 
-        //getTeamInfoAndScoreChangeFrames();
+        getTeamInfoAndScoreChangeFrames();
 
         extractHighlightVideos();
 
@@ -34,21 +35,22 @@ public class HighlightExtractor {
     private static void extractHighlightVideos() {
 
 
-        //final int[] s = {18470};
-        final int[] s = {18239, 151663, 167535};
+        final int[] s = {151663};
+        //final int[] s = {18239, 151663, 167535};
         //int[] s = {35727, 63416, 75017, 137841};
+        //int[] s = {35735, 68019, 76021, 137873};
 
         final MatOfFloat ranges = new MatOfFloat(0f, 256f, 0f, 256f, 0f, 256f);
         final MatOfInt histSize = new MatOfInt(8, 8, 8);
         final MatOfInt channels = new MatOfInt(0, 1, 2);
 
-        for (final Integer frameNum : s) {
-            extractVideoWithScoreboard(frameNum);
-            /*new Thread() {
+        for (final Integer frameNum : scoreChangeFrames) {
+            new Thread() {
                 public void run() {
                     //extractVideo(frameNum, channels, histSize, ranges);
+                    extractVideoWithScoreboard(frameNum);
                 }
-            }.start();*/
+            }.start();
         }
     }
 
@@ -60,24 +62,31 @@ public class HighlightExtractor {
         v.set(Videoio.CAP_PROP_POS_FRAMES, frameNum);
         boolean boardSeen = false;
         boolean startIdentified = false;
+        boolean sbGone1 = false;
         int firstCutFrame = 0;
         int secondCutFrame = 0;
 
         while (v.isOpened()) {
             if (v.read(frame) && (int) v.get(Videoio.CAP_PROP_POS_FRAMES) - frameNum < frameDuration) {
                 //frame = frame.submat(0, frame.rows(), 0, frame.cols());
-                ImageUtils.display(frame, "frame");
-                String[] names = infoExtractor.extractHockeyTeamNames(frame);
+                //ImageUtils.display(frame, "frame");
+                String[] names = infoExtractor.extractHockeyTeamNames(frame, new Tesseract());
+                //System.out.println(names[0] + " " + names[1]);
                 if (!boardSeen && names[0] != null && names[1] != null) {
                     boardSeen = true;
-                    System.out.println("Board seen");
-                } else if (boardSeen && !startIdentified && names[0] == null && names[1] == null) {
+                    //System.out.println("Board seen");
+                } else if (!sbGone1 && boardSeen && !startIdentified && names[0] == null && names[1] == null) {
+                    //firstCutFrame = (int) v.get(Videoio.CAP_PROP_POS_FRAMES) - frameNum;
+                    sbGone1 = true;
+                    //System.out.println("SB Gone 1");
+                } else if (sbGone1 && boardSeen && !startIdentified && names[0] == null && names[1] == null) {
                     firstCutFrame = (int) v.get(Videoio.CAP_PROP_POS_FRAMES) - frameNum;
                     startIdentified = true;
-                    System.out.println("Start identified");
+                    v.set(Videoio.CAP_PROP_POS_FRAMES,  v.get(Videoio.CAP_PROP_POS_FRAMES) + 180);
+                    //System.out.println("Start identified");
                 } else if (startIdentified && names[0] != null && names[1] != null) {
-                    secondCutFrame = (int) v.get(Videoio.CAP_PROP_POS_FRAMES) - frameNum;
-                    System.out.println("End identified");
+                    secondCutFrame = (int) v.get(Videoio.CAP_PROP_POS_FRAMES) - frameNum - 15;
+                    //System.out.println("End identified");
                     break;
                 }
                 double frameCount = v.get(Videoio.CAP_PROP_FRAME_COUNT);
@@ -105,8 +114,8 @@ public class HighlightExtractor {
         v.set(Videoio.CAP_PROP_POS_FRAMES, frameNum);
 
         v.read(prev);
-        prev = prev.submat(0, prev.rows(), 0, prev.cols());
-        //prev = prev.submat(125, prev.rows() - 125, 250, prev.cols() - 250);
+        //prev = prev.submat(0, prev.rows(), 0, prev.cols());
+        prev = prev.submat(125, prev.rows() - 125, 250, prev.cols() - 250);
         //Imgproc.cvtColor(prev, prev, Imgproc.COLOR_BGR2HSV);
         int frameDuration = 2400; // Check the 1 mins following a score for a replay
         double[] diffHistArray = new double[frameDuration];
@@ -114,9 +123,9 @@ public class HighlightExtractor {
 
         while (v.isOpened()) {
             if (v.read(frame) && (int) v.get(Videoio.CAP_PROP_POS_FRAMES) - frameNum < frameDuration) {
-                frame = frame.submat(0, frame.rows(), 0, frame.cols());
-                ImageUtils.display(frame, "frame");
-                //frame = frame.submat(125, frame.rows() - 125, 250, frame.cols() - 250);
+                //frame = frame.submat(0, frame.rows(), 0, frame.cols());
+                frame = frame.submat(125, frame.rows() - 125, 250, frame.cols() - 250);
+                //ImageUtils.display(frame, "frame");
                 //Imgproc.cvtColor(frame, frame, Imgproc.COLOR_BGR2HSV);
 
 
@@ -150,9 +159,10 @@ public class HighlightExtractor {
             } else break;
         }
 
-        new CutDetectionLineChart(diffHistArray);
+        new CutDetectionLineChart(diffHistArray, "Histogram", 1200);
+        new CutDetectionLineChart(diffMotionArray, "Template Matching", 250);
 
-        int firstCutFrame = 0;
+        /*int firstCutFrame = 0;
         double maxDiff = Double.MIN_VALUE;
         for (int i = 0; i < diffHistArray.length / 3; i++) {
             if (diffHistArray[i] > 100 && diffMotionArray[i] > 40) {
@@ -174,7 +184,7 @@ public class HighlightExtractor {
 
         writeHighlight(frameNum, frame.size(), firstCutFrame, secondCutFrame);
 
-        System.out.println("Start: " + (frameNum + firstCutFrame) + " End: " + (frameNum + secondCutFrame));
+        System.out.println("Start: " + (frameNum + firstCutFrame) + " End: " + (frameNum + secondCutFrame));*/
         v.release();
     }
 
@@ -185,7 +195,7 @@ public class HighlightExtractor {
                 System.out.println("Writing highlight...");
                 VideoCapture capture = new VideoCapture(filename);
                 Mat frame = new Mat();
-                VideoWriter writer = new VideoWriter(frameNum + "SB.avi", VideoWriter.fourcc('F', 'M', 'P', '4'), 30, frameSize);
+                VideoWriter writer = new VideoWriter(filename + "_" + frameNum + "SB.avi", VideoWriter.fourcc('F', 'M', 'P', '4'), 30, frameSize);
                 capture.set(Videoio.CAP_PROP_POS_FRAMES, frameNum + firstCutFrame);
                 while (capture.get(Videoio.CAP_PROP_POS_FRAMES) < frameNum + secondCutFrame) {
                     capture.read(frame);

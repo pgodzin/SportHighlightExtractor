@@ -30,7 +30,7 @@ public class InfoExtractor {
 
     public String[] extractTeamNames(String sport, Mat frame) {
         if (sport.equals("hockey")) {
-            return extractHockeyTeamNames(frame);
+            return extractHockeyTeamNames(frame, ocr);
         }
         return new String[2];
     }
@@ -42,12 +42,12 @@ public class InfoExtractor {
         return new String[2];
     }
 
-    public String[] extractHockeyTeamNames(Mat frame) {
+    public String[] extractHockeyTeamNames(Mat frame, Tesseract ocr) {
         String[] teamNames = new String[2];
         try {
-            Mat teams = frame.submat(43, 80, 50, 100);
+            Mat teams = frame.submat(42, 80, 55, 100);
             teams = adjustTeamMat(teams);
-
+            //ImageUtils.display(teams, "teams");
             String teamsText = ocr.doOCR(ImageUtils.Mat2BufferedImage(teams));
             //System.out.println(teamsText);
 
@@ -57,10 +57,14 @@ public class InfoExtractor {
                 team1 = team1.replace("NV", "NY");
                 team2 = team2.replace("NV", "NY");
                 //System.out.println(team1 + " & " + team2);
-                if (validTeamName(team1) && validTeamName(team2)) {
+                if (validTeamName(team1)) {
                     teamNames[0] = team1;
+                }
+                if (validTeamName(team2)) {
                     teamNames[1] = team2;
-                    System.out.println("Teams: " + team1 + " and " + team2);
+                }
+                if (teamNames[0] != null && teamNames[1] != null) {
+                    //System.out.println("Teams: " + team1 + " and " + team2);
                 }
             }
 
@@ -126,10 +130,6 @@ public class InfoExtractor {
             video.read(frame);
             //ImageUtils.display(frame, "binary_score");
             try {
-                if (frame.dims() == 0) {
-                    video.read(frame);
-                    //System.out.println("dim issues!");
-                }
                 Mat goal = frame.submat(55, 80, 70, 150);
                 //ImageUtils.display(goal, "goal");
                 //System.out.println(correctOCR(ocr.doOCR(ImageUtils.Mat2BufferedImage(goal))));
