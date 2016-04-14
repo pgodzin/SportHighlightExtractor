@@ -7,6 +7,8 @@ import org.opencv.highgui.VideoCapture;
 import org.opencv.imgproc.Imgproc;
 
 import javax.swing.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -28,7 +30,7 @@ public class HighlightExtractor {
     static ArrayList<Integer> scoreChangeFrames = new ArrayList<Integer>();
     static int progress;
     static  HashMap<Integer, JButton> frameAndComp;
-    static HashMap<Integer, String> frameAndFileName;
+    //static HashMap<Integer, String> frameAndFileName;
     static JLabel status;
     static JProgressBar bar;
 
@@ -197,7 +199,7 @@ public class HighlightExtractor {
         v.release();
     }
 
-    /*private static void writeHighlight(final int frameNum, final Size frameSize, final int firstCutFrame,
+    private static void writeHighlight(final int frameNum, final Size frameSize, final int firstCutFrame,
                                        final int secondCutFrame) {
         new Thread() {
             public void run() {
@@ -212,11 +214,23 @@ public class HighlightExtractor {
                 }
                 status.setText("Highlight is ready");
                 System.out.println("Highlight is ready");
-                frameAndFileName.put(Integer.valueOf(frameNum),frameNum + "SB.avi" )//TODO name of file
+                //frameAndFileName.put(Integer.valueOf(frameNum),frameNum + "SB.avi" )
+
+                frameAndComp.get(frameNum).addActionListener(new ActionListener() {
+                    public void actionPerformed(ActionEvent e)
+                    {
+                        //Execute when button is pressed
+                        System.out.println("You clicked the button");
+                        //TODO OPEN IN NEW WINDOWWWWWW
+                        //Phil wants the following:
+                        // addActionListener (if this button is pressed open up in a new window this file)
+                    }
+                });
+
                 writer.release();
             }
         }.start();
-    }*/
+    }
 
     public static int getProgress(){
         return progress;
@@ -225,6 +239,7 @@ public class HighlightExtractor {
         return frameAndComp;
     }
     private static void getTeamInfoAndScoreChangeFrames() {
+
         VideoCapture video = new VideoCapture(filename);
         Mat frame = new Mat();
         while (video.isOpened()) {
@@ -265,7 +280,6 @@ public class HighlightExtractor {
                     JButton aComponent = new JButton();
                     subPanel.add(aComponent);
                     panel.add(subPanel);
-
                     frameAndComp.put(Integer.valueOf(frameNum), aComponent);
 
                 } else if (scores[1] != null && scores[1].length() == 1 && Character.isDigit(scores[1].charAt(0)) && Integer.parseInt(scores[1]) - team2Score == 1) {
@@ -287,7 +301,6 @@ public class HighlightExtractor {
 
                 if (frameCount - posFrames < framesToSkip) break;
                 video.set(Videoio.CAP_PROP_POS_FRAMES, posFrames + framesToSkip);
-
             }
         }
         video.release();
