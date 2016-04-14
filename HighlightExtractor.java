@@ -1,3 +1,4 @@
+import javafx.scene.text.TextAlignment;
 import net.sourceforge.tess4j.Tesseract;
 import org.opencv.core.*;
 import org.opencv.imgproc.Imgproc;
@@ -5,8 +6,12 @@ import org.opencv.videoio.VideoCapture;
 import org.opencv.videoio.VideoWriter;
 import org.opencv.videoio.Videoio;
 
+import javax.swing.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 
 public class HighlightExtractor {
 
@@ -22,15 +27,26 @@ public class HighlightExtractor {
     static int team2Score = 0;
     static int framesToSkip = 5000;
     static ArrayList<Integer> scoreChangeFrames = new ArrayList<Integer>();
+    static int progress;
+    static HashMap<Integer, JButton> frameAndComp;
+    //static HashMap<Integer, String> frameAndFileName;
+    static JLabel status;
+    static JProgressBar bar;
 
-    public static void main(String[] args) {
+    static JPanel panel;
 
+    public HighlightExtractor(String filename, JLabel status, JProgressBar progressBar, JPanel panel) {
+        this.filename = filename;
+        progress = 0;
+        this.status = status;
+        this.panel = panel;
+        bar = progressBar;
+
+        frameAndComp = new HashMap<Integer, JButton>();
         getTeamInfoAndScoreChangeFrames();
-
         extractHighlightVideos();
-
-        // System.exit(0);
     }
+
 
     private static void extractHighlightVideos() {
 
@@ -57,6 +73,7 @@ public class HighlightExtractor {
     private static void extractVideoWithScoreboard(int frameNum) {
         Mat frame = new Mat();
         int frameDuration = 2400;
+        status.setText("Extracting Highlight...");
         System.out.println("Extracting " + frameNum);
         VideoCapture v = new VideoCapture(filename);
         v.set(Videoio.CAP_PROP_POS_FRAMES, frameNum);
@@ -82,7 +99,7 @@ public class HighlightExtractor {
                 } else if (sbGone1 && boardSeen && !startIdentified && names[0] == null && names[1] == null) {
                     firstCutFrame = (int) v.get(Videoio.CAP_PROP_POS_FRAMES) - frameNum;
                     startIdentified = true;
-                    v.set(Videoio.CAP_PROP_POS_FRAMES,  v.get(Videoio.CAP_PROP_POS_FRAMES) + 180);
+                    v.set(Videoio.CAP_PROP_POS_FRAMES, v.get(Videoio.CAP_PROP_POS_FRAMES) + 180);
                     //System.out.println("Start identified");
                 } else if (startIdentified && names[0] != null && names[1] != null) {
                     secondCutFrame = (int) v.get(Videoio.CAP_PROP_POS_FRAMES) - frameNum - 15;
@@ -201,8 +218,19 @@ public class HighlightExtractor {
                     capture.read(frame);
                     writer.write(frame);
                 }
+                status.setText("Highlight is ready");
                 System.out.println("Highlight is ready");
                 writer.release();
+
+                frameAndComp.get(frameNum).setEnabled(true);
+                frameAndComp.get(frameNum).setText("PLAY");
+                frameAndComp.get(frameNum).addActionListener(new ActionListener() {
+                    public void actionPerformed(ActionEvent e) {
+                        //Execute when button is pressed
+                        new VideoPlayer(filename + "_" + frameNum + "SB.avi");
+
+                    }
+                });
             }
         }.start();
     }
@@ -214,12 +242,18 @@ public class HighlightExtractor {
             if (video.read(frame)) {
                 double frameCount = video.get(Videoio.CAP_PROP_FRAME_COUNT);
                 double posFrames = video.get(Videoio.CAP_PROP_POS_FRAMES);
+                progress = (int) Math.round(100 * posFrames / frameCount);
+                bar.setValue(progress);
 
                 if (team1Name.equals("")) {
                     String[] teamNames = infoExtractor.extractTeamNames("hockey", frame);
                     if (teamNames[0] != null && teamNames[1] != null) {
                         team1Name = teamNames[0];
                         team2Name = teamNames[1];
+                        JLabel teamLabel = new JLabel();
+                        teamLabel.setText(team1Name + " vs " + team2Name);
+                        panel.add(teamLabel, TextAlignment.CENTER);
+                        panel.repaint();
                     }
                 }
 
@@ -227,12 +261,38 @@ public class HighlightExtractor {
                 String[] scores = infoExtractor.extractScore("hockey", frame);
                 if (scores[0] != null && scores[0].length() == 1 && Character.isDigit(scores[0].charAt(0)) && Integer.parseInt(scores[0]) - team1Score == 1) {
                     team1Score = Integer.parseInt(scores[0]);
+                    status.setText("Score detected. Searching for score change frame...");
                     System.out.println("Score Change: " + team1Score + "-" + team2Score);
                     frameNum = infoExtractor.extractScoreFrame("hockey", (int) video.get(Videoio.CAP_PROP_POS_FRAMES), filename, framesToSkip, team1Score, 0);
+                    JPanel subPanel = new JPanel();
+                    subPanel.setName("" + frameNum);
+                    subPanel.add(new JLabel(team1Name + " " + team1Score + " - " + team2Name + " " + team2Score));
+                    JButton aComponent = new JButton();
+                    aComponent.setEnabled(false);
+                    subPanel.add(aComponent);
+                    panel.add(subPanel);
+                    panel.repaint();
+                    panel.revalidate();
+                    panel.getParent().repaint();
+                    frameAndComp.put(Integer.valueOf(frameNum), aComponent);
+
                 } else if (scores[1] != null && scores[1].length() == 1 && Character.isDigit(scores[1].charAt(0)) && Integer.parseInt(scores[1]) - team2Score == 1) {
                     team2Score = Integer.parseInt(scores[1]);
+                    status.setText("Score detected. Searching for score change frame...");
                     System.out.println("Score Change: " + team1Score + "-" + team2Score);
                     frameNum = infoExtractor.extractScoreFrame("hockey", (int) video.get(Videoio.CAP_PROP_POS_FRAMES), filename, framesToSkip, team2Score, 1);
+                    JPanel subPanel = new JPanel();
+                    subPanel.setName("" + frameNum);
+                    subPanel.add(new JLabel(team1Name + " " + team1Score + " - " + team2Name + " " + team2Score));
+                    JButton aComponent = new JButton();
+                    aComponent.setEnabled(false);
+                    subPanel.add(aComponent);
+                    panel.add(subPanel);
+                    panel.repaint();
+                    panel.revalidate();
+                    panel.getParent().repaint();
+                    frameAndComp.put(Integer.valueOf(frameNum), aComponent);
+
                 }
 
                 if (frameNum > 0) scoreChangeFrames.add(frameNum);
