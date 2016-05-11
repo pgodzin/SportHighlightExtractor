@@ -11,6 +11,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 
+import org.opencv.imgproc.Imgproc;
+import org.opencv.videoio.VideoCapture;
+import org.opencv.videoio.Videoio;
+
 import static java.util.Arrays.asList;
 
 
@@ -19,6 +23,7 @@ public class SportHistogram {
     private static int binSize;
     //private static MatOfFloat histRange;
     //private static MatOfInt histSize;
+
     private static boolean accumulate;
     boolean RGBMethod = true;
 
@@ -35,13 +40,11 @@ public class SportHistogram {
         RGBMethod = rgb;
     }
 
-
     public static int[] getDominantColor(String filename) {
 
         MatOfFloat histRange = new MatOfFloat(0f, 256f);
         MatOfInt histSize = new MatOfInt(binSize);
         //boolean accumulate = true;
-
         VideoCapture video = new VideoCapture(filename);
 
         Mat frame = new Mat();
@@ -50,30 +53,26 @@ public class SportHistogram {
         Mat g_hist = new Mat();
         Mat r_hist = new Mat();
 
-        Mat hist = new Mat();
 
-        int j = 0;
+        double framesToSkip = video.get(Videoio.CAP_PROP_FRAME_COUNT) / 20;
+        double frameCount = video.get(Videoio.CAP_PROP_FRAME_COUNT);
 
         while (video.isOpened()) {
-            for (int i = 0; i < 100; i++) {
-                //if(i%1000 == 0){ System.out.println("Skipping...");}
-                if (!video.read(frame)) break; // skip i frames
-            }
+
+            double posFrames = video.get(Videoio.CAP_PROP_POS_FRAMES);
+            if (frameCount - posFrames < framesToSkip) break;
+            video.set(Videoio.CAP_PROP_POS_FRAMES, posFrames + framesToSkip);
             video.read(frame);
 
             Imgproc.calcHist(asList(frame), new MatOfInt(0), new Mat(), b_hist, histSize, histRange, accumulate);
             Imgproc.calcHist(asList(frame), new MatOfInt(1), new Mat(), g_hist, histSize, histRange, accumulate);
             Imgproc.calcHist(asList(frame), new MatOfInt(2), new Mat(), r_hist, histSize, histRange, accumulate);
 
-
             MatOfInt channels = new MatOfInt(0, 1, 2);
             MatOfFloat ranges = new MatOfFloat(0f, 256f, 0f, 256f, 0f, 256f);
 
             Imgproc.calcHist(asList(frame), channels, new Mat(), hist, new MatOfInt(16, 16, 16), ranges, accumulate);
 
-            j = j + 1;
-            System.out.println("J iteration: " + j);
-            if (j > 5) video.release();
         }
         System.out.println("Processed & Released Video.");
         Core.normalize(b_hist, b_hist, 0, 100, Core.NORM_MINMAX, -1, new Mat());
@@ -154,7 +153,6 @@ public class SportHistogram {
         Core.normalize(g_hist, g_hist, 0, 100, Core.NORM_MINMAX, -1, new Mat());
         Core.normalize(r_hist, r_hist, 0, 100, Core.NORM_MINMAX, -1, new Mat());
 
-
         int maxB = findMaxIndex(matToArr(b_hist));
         int maxG =  findMaxIndex(matToArr(g_hist));
         int maxR = findMaxIndex(matToArr(r_hist));
@@ -174,19 +172,17 @@ public class SportHistogram {
 
         Mat h_hist = new Mat();
         Mat s_hist = new Mat();
-        Mat v_hist = new Mat();
 
-        Mat hist = new Mat();
-
-        int j = 0;
+        double framesToSkip = video.get(Videoio.CAP_PROP_FRAME_COUNT)/ 20;
+        double frameCount = video.get(Videoio.CAP_PROP_FRAME_COUNT);
 
         while (video.isOpened()) {
-            for (int i = 0; i < 5; i++) {
-                //if(i%1000 == 0){ System.out.println("Skipping...");}
-                if (!video.read(frame)) break; // skip i frames
-            }
-
+            double posFrames = video.get(Videoio.CAP_PROP_POS_FRAMES);
+            if (frameCount - posFrames < framesToSkip) break;
+            video.set(Videoio.CAP_PROP_POS_FRAMES, posFrames + framesToSkip);
+            //System.out.println(posFrames);
             video.read(frame);
+
             Imgproc.cvtColor(frame, frame, Imgproc.COLOR_RGB2HSV);
 
             Imgproc.calcHist(asList(frame), new MatOfInt(0), new Mat(), h_hist, histSize, hsvRange, accumulate);
@@ -203,22 +199,22 @@ public class SportHistogram {
         Core.normalize(s_hist, s_hist, 0, 100, Core.NORM_MINMAX, -1, new Mat());
         //Core.normalize(r_hist, r_hist, 0, 100, Core.NORM_MINMAX, -1, new Mat());
 
+        video.release();
+
+        System.out.println("End of while loop");
+//        Core.normalize(h_hist, h_hist, 0, 100, Core.NORM_MINMAX, -1, new Mat());
+//        Core.normalize(s_hist, s_hist, 0, 100, Core.NORM_MINMAX, -1, new Mat());
 
         System.out.println(h_hist.t().dump());
         System.out.println(s_hist.t().dump());
-
 
         int maxS = findMaxIndex(matToArr(s_hist));
         int maxH =  findMaxIndex(matToArr(h_hist));
         System.out.println("Max S: "+ maxS);
         System.out.println("Max H: " +maxH);
-/*        System.out.println("H: " + (int)(maxH * 180* 1.5 / binSize));
-        System.out.println("S: " + (int)(maxS * 256* 1.5 / binSize));*/
 
-        video.release();
         return getHS(maxH, maxS);
-    }
-
+        }
     public static int findMaxIndex(double[] arr){
         int maxInt = 0;
         double maxVal = arr[maxInt];

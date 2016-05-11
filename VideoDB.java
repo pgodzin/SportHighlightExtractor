@@ -7,6 +7,7 @@ import com.mongodb.gridfs.GridFS;
 import com.mongodb.gridfs.GridFSDBFile;
 import com.mongodb.gridfs.GridFSInputFile;
 
+<<<<<<< HEAD
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.*;
@@ -14,13 +15,21 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.PriorityQueue;
+=======
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+>>>>>>> 890331d848203430f0c931f43141c5ebb4ab9d1c
 
 public class VideoDB {
     private static MongoClient mongoClient;
     private static DB database;
     private static GridFS gridfs;
     private static SportHistogram sportHist;
+<<<<<<< HEAD
     private static GridFS frames;
+=======
+>>>>>>> 890331d848203430f0c931f43141c5ebb4ab9d1c
 
     //public static void setUpDatabase
     public static MongoClient getMongoClient() {
@@ -35,19 +44,34 @@ public class VideoDB {
 
     public static void initialSetUp() {
         mongoClient = getMongoClient();
+<<<<<<< HEAD
         database = mongoClient.getDB("test");
         gridfs = new GridFS(database, "videos");
         frames = new GridFS(database, "frames");
+=======
+
+        database = mongoClient.getDB("test");
+        gridfs = new GridFS(database, "videos");
+>>>>>>> 890331d848203430f0c931f43141c5ebb4ab9d1c
     }
 
     private  static void saveFile(File file, String property, String value){
         try {
             GridFSInputFile gfsFile = gridfs.createFile(file);
             gfsFile.setFilename(file.getName());
+<<<<<<< HEAD
+=======
+
+>>>>>>> 890331d848203430f0c931f43141c5ebb4ab9d1c
             // add property & value (in our case sport type)
             gfsFile.put(property, value);
 
             // find and add histogram data
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> 890331d848203430f0c931f43141c5ebb4ab9d1c
             gfsFile.save();
         } catch (Exception e){
             System.out.println(e.getMessage());
@@ -96,6 +120,7 @@ public class VideoDB {
 
     public static void main(String[] args) throws Exception {
         sportHist = new SportHistogram();
+<<<<<<< HEAD
         initialSetUp();
         loadLocalFiles();
         if(gridfs.findOne(new BasicDBObject("filename", ".DS_Store"))!=null ){
@@ -161,6 +186,38 @@ public class VideoDB {
 
         labelSportVideo(new int[] {255,255,255},kn);
         labelSportVideo(new int[] {240,255,255},kn);
+=======
+
+        initialSetUp();
+        loadLocalFiles();
+
+        //sportHist.getDominantColor("../baseballvideos/asset_2500K-3.mp4");
+        //sportHist.getDominantColorWithHSV("../baseballvideos/asset_2500K-3.mp4");
+
+        BasicDBObject query = new BasicDBObject();
+        if(gridfs.find(query)  != null){
+            System.out.println("Found it");
+            //System.out.println(gridfs.find(query));
+            addDominantColors(database.getCollection("videos.files"));//thread
+            //printAllFiles(database.getCollection("videos.files"));
+        }else{
+            System.out.println("Did not found it");
+        }
+
+        printAllColorsAndSports();
+
+            //DBCollection collection= db.getCollection("testcollection1");
+
+        //collection.insert(file);
+        /*File file = new File("/Users/snehasilwal/IdeaProjects/VisualDB/SportHighlightExtractor/tessdata/videos/hockey1.mp4");
+        saveFile(file);
+        System.out.println("Saved file to db.");
+
+        File file2 = new File("/Users/snehasilwal/IdeaProjects/VisualDB/SportHighlightExtractor/tessdata/videos/hockey2.mp4");
+        saveFile(file2);
+        System.out.println("Saved file2 to db.");
+        */
+>>>>>>> 890331d848203430f0c931f43141c5ebb4ab9d1c
 
     }
 
@@ -176,7 +233,10 @@ public class VideoDB {
         List<GridFSDBFile> baseballVids = gridfs.find( new BasicDBObject("sport", "baseball"));
         System.out.println("Baseball");
         for(GridFSDBFile files: baseballVids){
+<<<<<<< HEAD
             System.out.println(files.get("filename"));
+=======
+>>>>>>> 890331d848203430f0c931f43141c5ebb4ab9d1c
             System.out.println(files.get("rgb").toString());
         }
         List<GridFSDBFile> hockeyVids = gridfs.find( new BasicDBObject("sport", "hockey"));
@@ -185,6 +245,7 @@ public class VideoDB {
             System.out.println(files.get("rgb").toString());
         }
 
+<<<<<<< HEAD
     }
 
     public static void saveAllFrames(){
@@ -420,6 +481,11 @@ public class VideoDB {
         return Math.sqrt(a1 + a2 + a3);
     }
 
+=======
+
+
+    }
+>>>>>>> 890331d848203430f0c931f43141c5ebb4ab9d1c
     public static void loadLocalFiles(){
         BasicDBObject hockeyQuery = new BasicDBObject("sport", "hockey");
         BasicDBObject baseballQuery = new BasicDBObject("sport", "baseball");
@@ -461,11 +527,19 @@ public class VideoDB {
                 }*/
                 for(GridFSDBFile files: baseballVids){
                     int[] rgb = sportHist.getDominantColor("../baseballvideos/" + files.getFilename());
+<<<<<<< HEAD
                     //int [] hsv = sportHist.getDominantColorWithHSV("../baseballvideos/" + files.getFilename());
                     files.put("rgb", rgb);
                     //files.put("hsv", hsv);
                     files.save();
                     System.out.println("Updated RGB value for a baseball video");
+=======
+                    int [] hsv = sportHist.getDominantColorWithHSV("../baseballvideos/" + files.getFilename());
+
+                    files.put("rgb", rgb);
+                    files.put("hsv", hsv);
+                    files.save();
+>>>>>>> 890331d848203430f0c931f43141c5ebb4ab9d1c
                 }
 
             }
@@ -491,12 +565,20 @@ public class VideoDB {
 
                 for(GridFSDBFile files: hockeyVids){
                     int[] rgb = sportHist.getDominantColor("../hockeyvideos/" + files.getFilename());
+<<<<<<< HEAD
                     //int [] hsv = sportHist.getDominantColorWithHSV("../hockeyvideos/" + files.getFilename());
 
                     files.put("rgb", rgb);
                     //files.put("hsv", hsv);
                     files.save();
                     System.out.println("Updated RGB value for a hockey video");
+=======
+                    int [] hsv = sportHist.getDominantColorWithHSV("../hockeyvideos/" + files.getFilename());
+
+                    files.put("rgb", rgb);
+                    files.put("hsv", hsv);
+                    files.save();
+>>>>>>> 890331d848203430f0c931f43141c5ebb4ab9d1c
                 }
             }
         };

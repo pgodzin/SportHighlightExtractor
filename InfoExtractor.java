@@ -30,7 +30,7 @@ public class InfoExtractor {
 
     public String[] extractTeamNames(String sport, Mat frame) {
         if (sport.equals("hockey")) {
-            return extractHockeyTeamNames(frame);
+            return extractHockeyTeamNames(frame, ocr);
         }
         return new String[2];
     }
@@ -42,24 +42,29 @@ public class InfoExtractor {
         return new String[2];
     }
 
-    private String[] extractHockeyTeamNames(Mat frame) {
+    public String[] extractHockeyTeamNames(Mat frame, Tesseract ocr) {
         String[] teamNames = new String[2];
         try {
-            Mat teams = frame.submat(43, 80, 50, 100);
+            Mat teams = frame.submat(42, 80, 55, 100);
             teams = adjustTeamMat(teams);
-
+            //ImageUtils.display(teams, "teams");
             String teamsText = ocr.doOCR(ImageUtils.Mat2BufferedImage(teams));
             //System.out.println(teamsText);
 
             if (teamsText.split("\\n").length == 2) {
-                String team1 = teamsText.split("\\n")[0];
-                String team2 = teamsText.split("\\n")[1];
+                String team1 = correctOCR(teamsText.split("\\n")[0]);
+                String team2 = correctOCR(teamsText.split("\\n")[1]);
                 team1 = team1.replace("NV", "NY");
                 team2 = team2.replace("NV", "NY");
-                if (validTeamName(team1) && validTeamName(team2)) {
+                //System.out.println(team1 + " & " + team2);
+                if (validTeamName(team1)) {
                     teamNames[0] = team1;
+                }
+                if (validTeamName(team2)) {
                     teamNames[1] = team2;
-                    System.out.println("Teams: " + team1 + " and " + team2);
+                }
+                if (teamNames[0] != null && teamNames[1] != null) {
+                    //System.out.println("Teams: " + team1 + " and " + team2);
                 }
             }
 
@@ -81,9 +86,9 @@ public class InfoExtractor {
     private String[] extractHockeyScore(Mat frame) {
         String[] scores = new String[2];
 
-        Mat scoreMat = frame.submat(40, 80, 108, 135);
+        Mat scoreMat = frame.submat(40, 80, 110, 135);
         scoreMat = adjustScoreMat(scoreMat);
-        //ImageUtils.display(scores, "score");
+        //ImageUtils.display(scoreMat, "score");
 
         try {
 
@@ -95,6 +100,7 @@ public class InfoExtractor {
                 String score2 = scoresText.split("\\n")[1];
                 scores[0] = correctOCR(score1);
                 scores[1] = correctOCR(score2);
+                //System.out.println(score1 + " -- " + score2);
                 //System.out.println(score1 + " -- " + score2);
             }
         } catch (TesseractException e) {
@@ -114,38 +120,52 @@ public class InfoExtractor {
     private int binarySearchForScoreFrame(String filename, int frameStart, int frameEnd, int score, int whichTeam) {
 
         VideoCapture video = new VideoCapture(filename);
-        if (Math.abs(frameEnd - frameStart) < 50) {
+        if (Math.abs(frameEnd - frameStart) < 100) {
             video.release();
             return frameStart;
-        }
-        else {
+        } else {
             int mid = (frameStart + frameEnd) / 2;
             video.set(Videoio.CAP_PROP_POS_FRAMES, mid);
             Mat frame = new Mat();
             video.read(frame);
             //ImageUtils.display(frame, "binary_score");
             try {
-                Mat scores = frame.submat(40, 80, 108, 135);
+                Mat goal = frame.submat(55, 80, 70, 150);
+                //ImageUtils.display(goal, "goal");
+                //System.out.println(correctOCR(ocr.doOCR(ImageUtils.Mat2BufferedImage(goal))));
+                if (correctOCR(ocr.doOCR(ImageUtils.Mat2BufferedImage(goal))).equals("GOAL")) {
+                    System.out.println("goal identified");
+                    video.release();
+                    return mid;
+                }
+
+                Mat scores = frame.submat(40, 80, 110, 135);
                 scores = adjustScoreMat(scores);
                 //ImageUtils.display(scores, "binary_score");
                 String scoresText = ocr.doOCR(ImageUtils.Mat2BufferedImage(scores));
+                //System.out.println(scoresText);
                 if (scoresText.split("\\n").length == 2) {
                     String newScore = scoresText.split("\\n")[whichTeam];
                     newScore = correctOCR(newScore);
                     if (newScore.length() == 1 && Character.isDigit(newScore.charAt(0)) && Integer.parseInt(newScore) == score) {
+                        video.release();
                         return binarySearchForScoreFrame(filename, frameStart, mid, score, whichTeam);
                     } else if (newScore.length() == 1 && Character.isDigit(newScore.charAt(0)) && score - Integer.parseInt(newScore) == 1) {
+                        video.release();
                         return binarySearchForScoreFrame(filename, mid, frameEnd, score, whichTeam);
                     } else {
-                        return binarySearchForScoreFrame(filename, frameStart, frameEnd - 100, score, whichTeam);
+                        video.release();
+                        return binarySearchForScoreFrame(filename, frameStart, frameEnd - 50, score, whichTeam);
                     }
                 } else {
-                    return binarySearchForScoreFrame(filename, frameStart, frameEnd - 100, score, whichTeam);
+                    video.release();
+                    return binarySearchForScoreFrame(filename, frameStart, frameEnd - 50, score, whichTeam);
                 }
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
+        video.release();
         return -1;
     }
 
@@ -201,9 +221,11 @@ public class InfoExtractor {
         s = s.replace("—", "");
         s = s.replace("_", "");
         s = s.replace("'", "");
+        s = s.replace("|", "");
         s = s.replace("`", "");
         s = s.replace("‘", "");
         s = s.replace("\"", "");
+        s = s.replace("\n", "");
         if (s.equals("T")) return "1";
         else if (s.equals("I")) return "1";
         else if (s.equals("i")) return "1";
